@@ -18,7 +18,7 @@ img = transform(img)
 print(img.shape)
 
 # 对应保存方式1 读取模型
-model1 = torch.load("my_train_9.pth").to(device)
+model1 = torch.load("my_train_19.pth").to(device)
 print(model1)
 
 img = torch.reshape(img,(1,3,32,32),).to(device)

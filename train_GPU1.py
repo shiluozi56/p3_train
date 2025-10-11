@@ -37,7 +37,7 @@ total_train_step = 0
 # 测试次数
 total_test_step = 0
 # 训练轮数
-epoch = 10
+epoch = 20
 
 # 添加tensorboard
 # 写入图片
@@ -91,6 +91,7 @@ for i in range (epoch):
     print("整体测试集上的loss:{}".format(total_test_loss))
     print("整体测试集上的正确率:{}".format(total_accuracy/len(test_data)))# 总准确率 = 正确数 / 测试集总样本数
     writer.add_scalar("test_loss", total_test_loss, total_test_step)
+    writer.add_scalar("total_accuracy", total_accuracy/len(test_data), total_test_step)
     total_test_step += 1
 
     torch.save(s1,"my_train_{}.pth".format(i))# 保存当前轮次的模型
