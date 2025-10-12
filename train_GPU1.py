@@ -37,7 +37,7 @@ total_train_step = 0
 # 测试次数
 total_test_step = 0
 # 训练轮数
-epoch = 20
+epoch = 30
 
 # 添加tensorboard
 # 写入图片
@@ -94,7 +94,8 @@ for i in range (epoch):
     writer.add_scalar("total_accuracy", total_accuracy/len(test_data), total_test_step)
     total_test_step += 1
 
-    torch.save(s1,"my_train_{}.pth".format(i))# 保存当前轮次的模型
+    # torch.save(s1,"my_train_{}.pth".format(i))# 保存当前轮次的模型
+    torch.save(s1, "my_train_fin.pth")  # 保存最终轮次的模型
     print("模型已保存 ")
 
 writer.close()
