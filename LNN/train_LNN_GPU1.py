@@ -1,108 +1,141 @@
+import os
+import time
+
 import torch
-import torchvision.datasets
-from torch import nn, optim
+from torch import nn
 from torch.utils.data import DataLoader
-from LNN.model_LNN import LiquidNN
 from torch.utils.tensorboard import SummaryWriter
 
-# 定义设备
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"使用设备: {device}")  # 打印当前使用的设备，方便确认
+from LNN.dataloader import StockDataset
+from LNN.model_LNN import LiquidNN
 
-#加载数据集（无需修改）
-train_data = torchvision.datasets.CIFAR10(root="../dataset",train=True,transform=torchvision.transforms.ToTensor(),download=True)
-test_data = torchvision.datasets.CIFAR10(root="../dataset",train=False,transform=torchvision.transforms.ToTensor(),download=True)
+def s1_LNN_train(data_selected,data_selected_season):
+    # 定义设备
+    device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+    print(f"使用设备: {device}")  # 打印当前使用的设备，方便确认
 
-print("训练集的长度为{}".format(len(train_data)))
-print("测试集的长度为{}".format(len(test_data)))
+    # spring summer autumn winter
+    if not os.path.exists("best_model_1840"):
+        os.makedirs("best_model_1840")
 
-# dataloader加载数据
-train_dataloader = DataLoader(train_data,batch_size = 64)
-test_dataloader = DataLoader(test_data,batch_size = 64)
+    train_data = StockDataset(
+        'data_process_mult_processed/' + data_selected + '/' + data_selected + '_' + data_selected_season + '.csv', 10,
+        is_test=False)
+    test_data = StockDataset(
+        'data_process_mult_processed/' + data_selected + '/' + data_selected + '_' + data_selected_season + '.csv', 10,
+        is_test=True)
 
+    train_loader = DataLoader(train_data, batch_size=256, shuffle=True, num_workers=2)
+    test_loader = DataLoader(test_data, batch_size=256, shuffle=False, num_workers=2)
 
-# 创建网络模型
-# s1 = self_nn_Module().to(device)
-s1 = LiquidNN(input_size=1, hidden_size=16, output_size=1).to(device)
-
-# 损失函数
-loss_fn = nn.MSELoss().to(device)
-
-# 优化器
-learning_rate = 0.01
-optimizer = optim.Adam(s1.parameters(),lr=learning_rate)
-#使用 Adam 优化器来更新模型参数，传入模型中所有可学习的参数（如权重矩阵、时间常数等）自动调整模型的W、U、tau等参数，让损失越来越小 学习率0.01
+    print("训练集的长度为{}".format(len(train_data)))
+    print("测试集的长度为{}".format(len(test_data)))
 
 
-# 设置训练网络参数
-# 训练次数
-total_train_step = 0
-# 测试次数
-total_test_step = 0
-# 训练轮数
-epoch = 30
+    # 创建网络模型
 
-# 添加tensorboard
-# 写入图片
-writer = SummaryWriter("logs")
-# 若无法将“tensorboard”项识别：执行python -m tensorboard.main --logdir logs --port=6007***************************
-
-
-# 开始训练
-for i in range (epoch):
-    print("第{}轮训练开始----------------------------------".format(i+1))
-
-    s1.train()
-    for data in train_dataloader: # 遍历训练集中的每一批数据
-        # 每批数据经过 “前向传播计算损失→反向传播求梯度→优化器更新参数” 的循环，逐步降低损失。
-        imgs,targets = data # 解包：imgs为图像张量，targets为标签（0-9的整数）
-
-        imgs = imgs.to(device)
-        targets = targets.to(device)
-
-        outputs = s1(imgs)# 前向传播：模型输出预测结果（形状为[batch_size, 10]）
-        loss = loss_fn(outputs,targets) # 计算当前批次的损失
-
-        #优化器优化模型
-        optimizer.zero_grad()# 清零梯度（避免累积）
-        loss.backward()# 反向传播，计算梯度
-        optimizer.step() # 根据梯度更新模型参数
-
-        # 记录并打印训练信息
-        total_train_step +=1
-        print("训练次数:{},loss:{}".format(total_train_step,loss))
-        writer.add_scalar("train_loss",loss.item(),total_train_step)# 记录训练损失
-
-    total_test_loss = 0 # 累计测试损失
-    total_accuracy = 0 # 累计正确预测数
-
-    # 开始测试步骤
-    s1.eval()
-    with torch.no_grad():#禁用梯度计算，减少内存占用并加速测试过程。
-        for data in test_dataloader:# 遍历测试集中的每一批数据
-            imgs, targets = data
-
-            imgs = imgs.to(device)
-            targets = targets.to(device)
-
-            outputs = s1(imgs) # 前向传播（无梯度计算）
-            loss = loss_fn(outputs, targets) # 计算测试损失
-            total_test_loss += loss.item() # 累加损失
-            # 计算准确率：outputs.argmax(1)取预测概率最大的类别索引，与targets比较
-            accuracy = (outputs.argmax(1) == targets).sum()
-            total_accuracy += accuracy
-    print("整体测试集上的loss:{}".format(total_test_loss))
-    print("整体测试集上的正确率:{}".format(total_accuracy/len(test_data)))# 总准确率 = 正确数 / 测试集总样本数
-    writer.add_scalar("test_loss", total_test_loss, total_test_step)
-    writer.add_scalar("total_accuracy", total_accuracy/len(test_data), total_test_step)
-    total_test_step += 1
-
-    # torch.save(s1,"my_train_{}.pth".format(i))# 保存当前轮次的模型
-    torch.save(s1, "../my_train_fin.pth")  # 保存最终轮次的模型
-    print("模型已保存 ")
-
-writer.close()
+    input_size = 11
+    hidden_size = 8
+    num_heads = 2
+    s1 = LiquidNN(input_size, hidden_size, num_heads).to(device)
+    print("===== Model Structure =====")
+    print(f"这是{data_selected}_{data_selected_season}.")
+    print(s1)
+    print("===========================")
+    # 损失函数
+    loss_fn = nn.MSELoss().to(device)
 
 
+    # 优化器
+    learning_rate = 0.01
+    optimizer = torch.optim.Adam(s1.parameters(),lr=learning_rate)
+    #使用 Adam 优化器来更新模型参数，传入模型中所有可学习的参数（如权重矩阵、时间常数等）自动调整模型的W、U、tau等参数，让损失越来越小 学习率0.01
 
-#GPU 网络模型 数据（输入、标注） 损失函数 这些要调用.cuda()
+    total_start_time = time.time()
+    best_test_loss = float("inf")
+    train_losses = []
+    test_losses = []
+    epoch_times = []
+
+    # 训练轮数
+    epoch = 30
+
+    # 添加tensorboard
+    # 写入图片
+    writer = SummaryWriter("logs")
+    # 若无法将“tensorboard”项识别：执行python -m tensorboard.main --logdir logs --port=6007***************************
+
+
+    # 开始训练
+    for i in range (epoch):
+        print("第{}轮训练开始----------------------------------".format(i+1))
+        epoch_start_time = time.time()
+
+        s1.train()
+        train_loss = 0.0
+
+        for data,label in train_loader: # 遍历训练集中的每一批数据
+            # 每批数据经过 “前向传播计算损失→反向传播求梯度→优化器更新参数” 的循环，逐步降低损失。
+            optimizer.zero_grad()# 清零梯度（避免累积）
+
+            data = data.to(device)
+            label = label.to(device)
+            out = s1(data)
+            loss = loss_fn(out, label)
+
+            loss.backward()# 反向传播，计算梯度
+            optimizer.step() # 根据梯度更新模型参数
+            train_loss += loss.item()
+
+            imgs,targets = data # 解包：imgs为图像张量，targets为标签（0-9的整数）
+
+            imgs = imgs.to(device) #输入
+            targets = targets.to(device) #标签
+
+            outputs = s1(imgs)
+            loss = loss_fn(outputs,targets) # 计算当前批次的损失
+        avg_train_loss = train_loss / len(train_loader)
+        train_losses.append(avg_train_loss)
+
+
+        # 开始测试步骤
+        s1.eval()
+        test_loss = 0.0
+        with torch.no_grad():#禁用梯度计算，减少内存占用并加速测试过程。
+            for data in test_loader:# 遍历测试集中的每一批数据
+                out = s1(data)
+                loss = loss_fn(out, label)
+                test_loss += loss.item()
+        avg_test_loss = test_loss / len(test_loader)
+        test_losses.append(avg_test_loss)
+
+        epoch_time = time.time() - epoch_start_time
+        epoch_times.append(epoch_time)
+
+        print(f"Epoch {epoch + 1}/{epoch}, "
+              f"Train Loss: {avg_train_loss:.12f}, "
+              f"Test Loss: {avg_test_loss:.12f}, "
+              f"Time: {epoch_time:.2f} sec")
+
+        # 保存最佳模型
+        if avg_test_loss < best_test_loss:
+            best_test_loss = avg_test_loss
+            torch.save(s1.state_dict(), f"best_model_1840/{data_selected}/s1_best_{data_selected_season}.pth")
+            print(f"Saved best model at epoch {epoch + 1}, Test Loss: {best_test_loss:.12f}")
+
+
+    total_time = time.time() - total_start_time
+
+    print(f"Training finished in {total_time:.2f} seconds")
+    print(f"Best test loss: {best_test_loss:.6f}")
+
+
+    writer.close()
+
+
+
+    #GPU 网络模型 数据（输入、标注） 损失函数 这些要调用.cuda()
+
+
+if __name__ == '__main__':
+    s1_LNN_train("f1","spring")
