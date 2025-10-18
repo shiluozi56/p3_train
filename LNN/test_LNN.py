@@ -40,11 +40,11 @@ def test(data_selected,data_selected_season):
     hidden_size = 11
     output_size  = 1
     s1 = LiquidNN(input_size, hidden_size, output_size).to(device)
+
     s1.load_state_dict(params)
     s1.eval()
     loss_fn = nn.MSELoss().to(device)
 
-    total_start_time = time.time()
     y_gt = [] #真实值（y_gt）：从test_loader中直接获取标签label，经过反归一化后得到实际业务数值（如真实发电量）
     y_pred = [] #通过加载训练好的LiquidNN模型（s1）对测试数据data进行推理，输出模型预测结果，再经过反归一化得到预测的业务数值。
     batch_times = []
@@ -70,8 +70,8 @@ def test(data_selected,data_selected_season):
     y_gt = np.array(y_gt).reshape(-1, 1)
     y_pred = np.array(y_pred).reshape(-1, 1)
 
-    # 根据用户选择决定是否反归一化
 
+    # 根据用户选择决定是否反归一化 此处默认选择为是
     scaler = test_data.scaler
     dummy = np.zeros((y_gt.shape[0], test_data.amount_of_features))
     dummy_gt = dummy.copy()
@@ -80,14 +80,6 @@ def test(data_selected,data_selected_season):
     dummy_pred[:, -1] = y_pred[:, 0]
     y_gt_plot = scaler.inverse_transform(dummy_gt)[:, -1]
     y_pred_plot = scaler.inverse_transform(dummy_pred)[:, -1]
-
-    # 计算指标
-    r2 = r2_score(y_gt_plot, y_pred_plot)
-    rmse = np.sqrt(mean_squared_error(y_gt_plot, y_pred_plot))
-    mae = mean_absolute_error(y_gt_plot, y_pred_plot)
-    mape = mean_absolute_percentage_error(y_gt_plot, y_pred_plot) * 100
-    avg_batch_time = np.mean(batch_times)
-    total_time = time.time() - total_start_time
 
     # 绘制前1000步对比图
     plt.figure(figsize=(12, 6))
